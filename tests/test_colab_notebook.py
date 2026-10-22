@@ -3,6 +3,7 @@
 import ast
 import json
 import os
+import shutil
 import subprocess
 from functools import wraps
 from pathlib import Path
@@ -63,3 +64,32 @@ def test_notebook_examples_run_offline_on_cpu(tmp_path, monkeypatch) -> None:
     assert namespace["checkpoint_path"].is_file()
     assert namespace["payload"]["metadata"]["git_commit"]
     assert namespace["view"].size == (60, 60)
+
+
+def test_uploaded_checkout_records_metadata_without_git(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+    monkeypatch.setattr(
+        torch.backends.mps,
+        "is_available",
+        wraps(torch.backends.mps.is_available)(lambda: False),
+    )
+    notebook = json.loads(NOTEBOOK.read_text())
+    namespace = {"PROJECT_ROOT": PROJECT_ROOT, "Path": Path, "subprocess": subprocess}
+    imports = next(
+        cell
+        for cell in notebook["cells"]
+        if "imports" in cell["metadata"].get("tags", [])
+    )
+    exec(compile("".join(imports["source"]), str(NOTEBOOK), "exec"), namespace)
+    shutil.copytree(PROJECT_ROOT / "src", tmp_path / "src")
+    shutil.copyfile(PROJECT_ROOT / "uv.lock", tmp_path / "uv.lock")
+    namespace["PROJECT_ROOT"] = tmp_path
+    device_cell = next(
+        cell
+        for cell in notebook["cells"]
+        if "device" in cell["metadata"].get("tags", [])
+    )
+    exec(compile("".join(device_cell["source"]), str(NOTEBOOK), "exec"), namespace)
+    assert namespace["metadata"]["git_commit"] is None
+    assert namespace["metadata"]["git_dirty"] is None
+    assert len(namespace["metadata"]["source_sha256"]) == 64
