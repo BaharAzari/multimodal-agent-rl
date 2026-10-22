@@ -7,10 +7,10 @@ relevant defect descriptions/reference images, inspect crops with a VLM, and
 predict an original-image bounding box. Later improve localization through
 verifiable rewards and GRPO using an isolated rLLM adapter.
 
-Only the deterministic `crop_and_zoom` utility and tests are implemented.
-No data/model downloads or training occur during setup. Keep the repository
-minimal; create new modules, `configs/`, and `experiments/` only when implemented
-work needs them. Use Python >=3.11, development Python 3.13, and PyTorch for ML.
+Implemented scope is crop/zoom, device/seeding/checkpoint helpers, and a synthetic
+Colab smoke notebook; no datasets/models or training. Keep the repository minimal;
+create new modules, `configs/`, and `experiments/` only when implemented work needs
+them. Use Python >=3.11, local development Python 3.13, and PyTorch for ML.
 
 ## Proposed architecture
 
@@ -22,6 +22,7 @@ These are responsibilities for future implementation, not empty packages to add:
 | Retrieval | Text/image embeddings, training-only indexes, ranked evidence/provenance |
 | Agent | VLM observations, validated actions, history, bounded interaction loop |
 | Tools | Crop/zoom now; coordinate/provenance wrapper when the agent is built |
+| Runtime | Device/seeding helpers and atomic state-dictionary checkpoints now |
 | Rewards | Protected ground-truth scorer, localization and cost components |
 | Training | Backend-neutral rollouts plus isolated rLLM/GRPO integration |
 | Evaluation | Frozen protocols, metrics, ablations, and failure analysis |
@@ -43,7 +44,7 @@ A crop displayed at `(Wc, Hc)` maps `(u, v)` to source coordinates
 
 | Stage | Work and acceptance criteria |
 | --- | --- |
-| 0. Setup | Minimal package, uv lock, crop/zoom; synthetic CPU tests and lint pass |
+| 0. Setup | Minimal package, uv lock, crop/runtime tests; synthetic Colab smoke, CPU tests, and lint pass |
 | 1. Data/contracts | Choose data, freeze splits; annotation and nested-coordinate round trips pass |
 | 2. Direct VLM | Validated terminal outputs, fixed budgets, replayable evaluation baseline |
 | 3. Retrieval | Training-only multimodal index; provenance and held-out leakage checks pass |
@@ -83,3 +84,8 @@ support. Do not assume an API before this compatibility check.
   Keep `.venv` out of the repository. Record config/code/lock hashes, uv/Python
   and model/data/index versions, seeds/determinism, hardware, and artifact paths.
   Run the locked pytest/Ruff commands in `AGENTS.md` before comparing changes.
+- Colab uses the active Python >=3.11 kernel and locked hashed runtime exports,
+  not `uv sync`. Test synthetic CPU fallback; CUDA depends on runtime availability.
+  Checkpoint model/optimizer state, step/metadata, and RNGs with atomic replacement.
+  `/content/checkpoints` is ephemeral; optional Drive persistence is explicit.
+  Validate resumed RNG/state behavior before adding actual training.
